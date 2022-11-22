@@ -1,0 +1,618 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Description:  This template deploys a VPC, with a 3 public subnets spread
+  across three Availability Zones. It deploys an internet gateway, with a default
+  route on the public subnets. It deploys an EC2 instance with security group
+
+Parameters:
+  EnvironmentName:
+    Description: An environment name that is prefixed to resource names
+    Type: String
+
+  VpcCIDR:
+    Description: Please enter the IP range (CIDR notation) for this VPC
+    Type: String
+    Default: 10.192.0.0/16
+
+  PublicSubnet1CIDR:
+    Description: Please enter the IP range (CIDR notation) for the public subnet in the first Availability Zone
+    Type: String
+    Default: 10.192.10.0/24
+
+  PublicSubnet2CIDR:
+    Description: Please enter the IP range (CIDR notation) for the public subnet in the second Availability Zone
+    Type: String
+    Default: 10.192.11.0/24
+
+  PublicSubnet3CIDR:
+    Description: Please enter the IP range (CIDR notation) for the public subnet in the second Availability Zone
+    Type: String
+    Default: 10.192.12.0/24
+
+  AmiId:
+    Description: Please enter the AMI ID
+    Type: String
+    Default: ami-0f02a7e9ed4a29568
+
+  PrivateSubnet1CIDR:
+    Description: Please enter the IP range (CIDR notation) for the private subnet in the first Availability Zone
+    Type: String
+    Default: 10.192.20.0/24
+
+  PrivateSubnet2CIDR:
+    Description: Please enter the IP range (CIDR notation) for the private subnet in the first Availability Zone
+    Type: String
+    Default: 10.192.21.0/24
+  
+  domainName:
+    Description: Domain name for DNS
+    Type: String
+    Default: prod.harshithnarahari.me.
+
+  PrivateSubnet3CIDR:
+    Description: Please enter the IP range (CIDR notation) for the private subnet in the first Availability Zone
+    Type: String
+    Default: 10.192.22.0/24
+  DBInstanceIdentifier:
+    Type: String
+    Default: "postgres"
+  DBUsername:
+    NoEcho: "true"
+    Description: Username for Postgresql database access
+    Type: String
+    MinLength: "1"
+    MaxLength: "16"
+    AllowedPattern: "[a-zA-Z][a-zA-Z0-9]*"
+    ConstraintDescription: Must begin with a letter and contain only alphanumeric characters.
+    Default: "postgres"
+  DBPassword:
+    NoEcho: "true"
+    Description: Password Postgresql database access
+    Type: String
+    MinLength: "5"
+    MaxLength: "20"
+    AllowedPattern: "[a-zA-Z0-9#]*"
+    ConstraintDescription: Must contain only alphanumeric characters.
+    
+Resources:
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref VpcCIDR
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: !Ref EnvironmentName
+
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Ref EnvironmentName
+
+  InternetGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      InternetGatewayId: !Ref InternetGateway
+      VpcId: !Ref VPC
+
+  PublicSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [ 0, !GetAZs '' ]
+      CidrBlock: !Ref PublicSubnet1CIDR
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName} Public Subnet (AZ1)
+
+  PublicSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [ 1, !GetAZs  '' ]
+      CidrBlock: !Ref PublicSubnet2CIDR
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName} Public Subnet (AZ2)
+
+  
+  PublicSubnet3:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [ 2, !GetAZs  '' ]
+      CidrBlock: !Ref PublicSubnet3CIDR
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName} Public Subnet (AZ3)
+
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName} Public Routes
+
+  DefaultPublicRoute:
+    Type: AWS::EC2::Route
+    DependsOn: InternetGatewayAttachment
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  PublicSubnet1RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      SubnetId: !Ref PublicSubnet1
+
+  PublicSubnet2RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      SubnetId: !Ref PublicSubnet2
+
+  PublicSubnet3RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      SubnetId: !Ref PublicSubnet3
+
+  PrivateSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [ 0, !GetAZs  '' ]
+      CidrBlock: !Ref PrivateSubnet1CIDR
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName} Private Subnet (AZ1)
+
+  PrivateSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [ 1, !GetAZs  '' ]
+      CidrBlock: !Ref PrivateSubnet2CIDR
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName} Private Subnet (AZ2)
+
+  PrivateSubnet3:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [ 2, !GetAZs  '' ]
+      CidrBlock: !Ref PrivateSubnet3CIDR
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName} Private Subnet (AZ3)
+
+  PrivateRouteTable1:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName} Private Routes (AZ1)
+  PrivateSubnet1RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable1
+      SubnetId: !Ref PrivateSubnet1
+
+  PrivateRouteTable2:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName} Private Routes (AZ2)
+  PrivateSubnet2RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable2
+      SubnetId: !Ref PrivateSubnet2
+
+  PrivateRouteTable3:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName} Private Routes (AZ3)
+  PrivateSubnet3RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable3
+      SubnetId: !Ref PrivateSubnet3
+  
+
+
+  WebAppInstance:
+    Type: 'AWS::EC2::Instance'
+    Properties:
+      ImageId: !Ref AmiId
+      InstanceType: t2.micro
+      SubnetId: !Ref PublicSubnet1
+      Tags:
+        - Key: "Name"
+          Value: "cloud-ec2"
+      SecurityGroupIds:
+        - Ref: InstanceSecurityGroup
+      BlockDeviceMappings:
+        - DeviceName: /dev/sda1
+          Ebs:
+            VolumeSize: 50
+            VolumeType: gp2
+      IamInstanceProfile: !Ref myInstanceProfile
+      KeyName: 'aws-01'
+      UserData:
+        Fn::Base64:
+          Fn::Join:
+          - "\n"
+          - - "#!/bin/bash"
+            - Fn::Join:
+              - ''
+              - - "sudo echo DB_USERNAME="
+                - !Ref DBUsername
+                - " >> /etc/environment" 
+            - Fn::Join:
+              - ''
+              - - "sudo echo DB_PASSWORD="
+                - !Ref DBPassword 
+                - " >> /etc/environment"
+            - Fn::Join:
+              - ''
+              - - "sudo echo DB_URL="
+                - !GetAtt PostgresRDSDatabase.Endpoint.Address
+                - ":5432/postgres"
+                - " >> /etc/environment"
+            - Fn::Join:
+              - ''
+              - - "sudo echo BUCKETNAME="
+                - !Ref S3Bucket
+                - " >> /etc/environment"
+            - Fn::Join:	
+              - ''	
+              - - "sudo echo TOPIC_ARN="	
+                - !Ref MySNSTopic	
+                - " >> /etc/environment"
+            - Fn::Join:
+              - ''
+              - - "sudo echo REGION_NAME=us-east-1"
+                - " >> /etc/environment"
+            - "source /etc/profile"
+            - "chmod 777 test/webapp-0.0.1-SNAPSHOT.jar"
+            - "sudo iptables -t nat -A PREROUTING -p tcp --dport 80 -j REDIRECT --to-ports 8080"
+            - "sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl \
+                -a fetch-config \
+                -m ec2 \
+                -c file:/opt/aws/amazon-cloudwatch-agent/etc/cloudwatch-agent-config.json \ 
+                -s"
+            - "sudo systemctl import-environment DB_USERNAME"
+            - "sudo systemctl import-environment DB_PASSWORD"
+            - "sudo systemctl import-environment DB_URL"
+            - "sudo systemctl import-environment BUCKETNAME"
+            - "sudo systemctl import-environment REGION_NAME"
+            - "sudo systemctl daemon-reload"
+            - "sudo systemctl enable webapp-service.service"
+            - "sudo systemctl start webapp-service.service"
+  InstanceSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: "application"
+      GroupDescription: "Allow HTTP/HTTPS and SSH and port 3001"
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: '443'
+          ToPort: '443'
+          CidrIp: 0.0.0.0/0 
+        - IpProtocol: tcp
+          FromPort: '22'
+          ToPort: '22'
+          CidrIp: 0.0.0.0/0 
+        - IpProtocol: tcp
+          FromPort: '8080'
+          ToPort: '8080'
+          CidrIp: 0.0.0.0/0 
+
+  DBSecurity:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: "Security group for RDS instance allowing traffic only from EC2"
+      GroupName: database
+      SecurityGroupIngress:
+      - Description: ingress rule on 5432
+        IpProtocol: tcp
+        FromPort: '5432' 
+        ToPort: '5432'
+        SourceSecurityGroupId: !Ref InstanceSecurityGroup
+      VpcId: !Ref VPC
+
+  S3Bucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Delete
+    Properties:
+      BucketName: !Join
+      - "-"
+      - - "test-harshith"
+        - !Ref "EnvironmentName"
+         
+      BucketEncryption: 
+        ServerSideEncryptionConfiguration: 
+        - ServerSideEncryptionByDefault:
+            SSEAlgorithm: AES256
+      LifecycleConfiguration: 
+        Rules:
+        - Id: MoveAfter30days
+          Prefix: logs
+          Status: Enabled
+          Transitions:
+          - TransitionInDays: 30
+            StorageClass: STANDARD_IA
+
+  DBParameterGroup:
+    Type: AWS::RDS::DBParameterGroup
+    Properties: 
+      Description: RDS ParameterGroup
+      Family: 'postgres14'
+
+  DataSourceSubtNetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: Created by CF
+      SubnetIds:
+        - !Ref PrivateSubnet1
+        - !Ref PrivateSubnet2
+        - !Ref PrivateSubnet3
+
+  PostgresRDSDatabase:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      DBInstanceIdentifier: !Ref DBInstanceIdentifier
+      VPCSecurityGroups:
+        - !GetAtt DBSecurity.GroupId
+      AllocatedStorage: "5"
+      DBInstanceClass: db.t3.micro
+      Engine: postgres
+      MasterUsername: !Ref DBUsername
+      MasterUserPassword: !Ref DBPassword
+      DBName: postgres
+      DBSubnetGroupName: !Ref DataSourceSubtNetGroup
+      MultiAZ: false
+      PubliclyAccessible: false
+    DeletionPolicy: Snapshot
+    UpdateReplacePolicy: Snapshot
+
+  myInlinePolicyForS3:
+    Type: 'AWS::IAM::Policy'
+    Properties:
+      PolicyName: WebAppS3 # (required) give a name to this policy
+      PolicyDocument: # (required) JSON policy document
+        Version: '2012-10-17'
+        Statement: # allow read only access to all S3 buckets
+          - Effect: Allow
+            Action:
+              - 's3:DeleteObject'
+              - 's3:DeleteObjectVersion'
+              - 's3:GetObject'
+              - 's3:GetObjectAcl'
+              - 's3:GetObjectVersion'
+              - 's3:PutObject'
+              - 's3:PutObjectAcl'
+            Resource:
+            - !Join  ["",["arn:aws:s3:::", !Ref S3Bucket]]
+            - !Join  ["",["arn:aws:s3:::", !Ref S3Bucket,"/*"]]
+      Roles:	
+        -	
+          !Ref myIAMRole	
+  	
+  myInlinePolicyForDynamoDB:	
+    Type: 'AWS::IAM::Policy'	
+    Properties:	
+      PolicyName: WebAppDynamo # (required) give a name to this policy	
+      PolicyDocument: # (required) JSON policy document	
+        Version: '2012-10-17'	
+        Statement: # allow read only access to all S3 buckets	
+          - Effect: Allow	
+            Action:	
+              - 'dynamodb:PutItem'	
+              - 'dynamodb:DescribeTable'	
+              - 'dynamodb:DeleteItem'	
+              - 'dynamodb:GetItem'	
+              - 'dynamodb:Scan'	
+              - 'dynamodb:Query'	
+              - 'dynamodb:UpdateItem'	
+            Resource:	
+            - !Join  ["",[!GetAtt myDynamoDBTable.Arn]]	
+      Roles:	
+        -	
+          !Ref myIAMRole	
+  myInlinePolicyForSNS:	
+    Type: 'AWS::IAM::Policy'	
+    Properties:	
+      PolicyName: WebAppSNS # (required) give a name to this policy	
+      PolicyDocument: # (required) JSON policy document	
+        Version: '2012-10-17'	
+        Statement: # allow read only access to all S3 buckets	
+          - Effect: Allow	
+            Action:	
+              - 'sns:Publish'	
+            Resource:	
+            - !Join  ["",[!Ref MySNSTopic]]
+
+
+      Roles:
+        -
+          !Ref myIAMRole
+
+  myInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties: 
+      InstanceProfileName: my-ec2-instance-profile
+      Path: /
+      Roles: 
+       - !Ref myIAMRole
+
+  myIAMRole:
+    Type: AWS::IAM::Role
+    Properties: 
+      Description: IAM role for EC2 with 
+      RoleName: EC2-CSYE6225  
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          -
+            Effect: Allow
+            Principal:
+              Service:
+                - ec2.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Path: /   
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy
+      
+  myDNSRecord:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneName: !Ref domainName
+      Comment: DNS name for my instance.
+      # Name: !Join ['', [!Ref EnvironmentName,'.harshithnarahari.me.' ]]
+      Name: !Ref domainName
+      Type: A
+      TTL: 120
+      ResourceRecords:
+        - !GetAtt WebAppInstance.PublicIp
+  
+  myDynamoDBTable: 	
+    Type: AWS::DynamoDB::Table	
+    Properties: 	
+      AttributeDefinitions: 	
+        - 	
+          AttributeName: "email"	
+          AttributeType: "S"	
+      KeySchema:	
+        - AttributeName: "email"	
+          KeyType: "HASH"	
+      ProvisionedThroughput: 	
+        ReadCapacityUnits: "1"	
+        WriteCapacityUnits: "1"	
+      TableName: "auth"	
+      TimeToLiveSpecification: 	
+          AttributeName: "ttl"	
+          Enabled: true	
+  	
+  LambdaRole:	
+    Type: AWS::IAM::Role	
+    Properties:	
+      RoleName:	
+        Fn::Sub: lambda-role	
+      AssumeRolePolicyDocument:	
+        Statement:	
+          - Action:	
+            - sts:AssumeRole	
+            Effect: Allow	
+            Principal:	
+              Service:	
+              - lambda.amazonaws.com	
+       	
+      Path: /	
+      Policies:	
+        - PolicyName: "cloudformation-lambda-role-policy"	
+          PolicyDocument:	
+            Version: "2012-10-17"	
+            Statement:	
+              - Effect: "Allow"	
+                Action:	
+                  - "ses:SendEmail"	
+                Resource: "arn:aws:ses:us-east-1:007906344080:identity/*"	
+              - Effect: "Allow"	
+                Action:	
+                  - "logs:CreateLogGroup"	
+                  - "logs:CreateLogStream"	
+                  - "logs:PutLogEvents"	
+                Resource: "arn:aws:logs:*:*:*"	
+  LambdaFunction:	
+    Type: AWS::Lambda::Function	
+    Properties:	
+      FunctionName: cloudformation-lambda	
+      Runtime: java11	
+      Code: 	
+        S3Bucket: "webapp-jarfile-bucket"	
+        S3Key: serverless-1.0-SNAPSHOT.jar	
+      Handler: main.java.handler.LambdaHandler::handleRequest	
+      Role:	
+        Fn::GetAtt:	
+          - LambdaRole	
+          - Arn	
+      Environment:	
+        Variables:	
+          domain: prod.	
+          region: US_EAST_1	
+  LambdaFunctionPermission:	
+    Type: AWS::Lambda::Permission	
+    Properties:	
+      Action: lambda:InvokeFunction	
+      FunctionName: !GetAtt LambdaFunction.Arn	
+      Principal: sns.amazonaws.com	
+      SourceArn: !Ref 'MySNSTopic'	
+  MySNSTopic:	
+    Type: AWS::SNS::Topic	
+    Properties:	
+      Subscription:	
+        - Endpoint:	
+            Fn::GetAtt:	
+              - "LambdaFunction"	
+              - "Arn"  	
+          Protocol: "lambda"	
+      TopicName: "cloud-formation-SNS"	
+      
+  MySubscription:	
+    Type: AWS::SNS::Subscription	
+    Properties:	
+      Endpoint:	
+        Fn::GetAtt:	
+              - "LambdaFunction"	
+              - "Arn"   	
+      Protocol: "lambda"	
+      TopicArn: !Ref 'MySNSTopic'
+
+
+Outputs:
+  VPC:
+    Description: A reference to the created VPC
+    Value: !Ref VPC
+
+  PublicSubnets:
+    Description: A list of the public subnets
+    Value: !Join [ ",", [ !Ref PublicSubnet1, !Ref PublicSubnet2, !Ref PublicSubnet3 ]]
+
+  PublicSubnet1:
+    Description: A reference to the public subnet in the 1st Availability Zone
+    Value: !Ref PublicSubnet1
+
+  PublicSubnet2:
+    Description: A reference to the public subnet in the 2nd Availability Zone
+    Value: !Ref PublicSubnet2
+
+  PublicSubnet3:
+    Description: A reference to the public subnet in the 3rd Availability Zone
+    Value: !Ref PublicSubnet3
