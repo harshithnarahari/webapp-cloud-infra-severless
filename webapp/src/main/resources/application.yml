@@ -1,0 +1,33 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://${DB_URL}
+# spring.datasource.url=jdbc:postgresql:postgres:5432/postgres
+# cloud.aws.rds.postgres.password=Qwerty123##
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+
+# Hibernate properties
+  jpa:
+    properties:
+      hibernate:  
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+        
+  security:
+    user:   
+      name: admin
+      password: 123
+
+# accessKey=AKIAXDYHG4JG6FXPPV3C
+# secret=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
+bucketname: ${BUCKETNAME}
+region: ${REGION_NAME}
+logging:
+  pattern:
+    console: "{\"time\": \"%d\", \"level\": \"%p\", \"correlation-id\": \"%X{X-Correlation-Id}\", \"source\": \"%logger{63}:%L\", \"message\": \"%replace(%m%wEx{6}){'[\r\n]+', '\\n'}%nopex\"}%n"
+  file:
+    path: /var/log/
+    name: cloud_application.log

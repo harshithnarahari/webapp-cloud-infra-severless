@@ -1,0 +1,15 @@
+[Unit]
+Description = Service to launch Spring Boot application
+After=syslog.target
+
+[Service]
+User=ubuntu
+StandardOutput=append:/var/log/cloud_application.log
+StandardError=append:/var/log/cloud_application.log
+ExecStart=/usr/bin/java -jar /home/ubuntu/test/webapp-0.0.1-SNAPSHOT.jar
+SuccessExitStatus=143
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
