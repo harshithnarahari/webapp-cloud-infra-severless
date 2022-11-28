@@ -20,9 +20,7 @@ spring:
     user:   
       name: admin
       password: 123
-
-# accessKey=AKIAXDYHG4JG6FXPPV3C
-# secret=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
+      
 bucketname: ${BUCKETNAME}
 region: ${REGION_NAME}
 logging:
